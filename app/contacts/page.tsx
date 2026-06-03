@@ -1,0 +1,209 @@
+"use client";
+
+import PageHeader from "@/components/layout/PageHeader";
+import BottomNav from "@/components/layout/BottomNav";
+import FAB from "@/components/layout/FAB";
+import ProgressBar from "@/components/ui/ProgressBar";
+import Avatar from "@/components/ui/Avatar";
+import {
+  MOCK_CONTACTS,
+  formatCurrency,
+} from "@/lib/utils";
+import { ChevronRight, Plus, Users } from "lucide-react";
+
+const GROUPS = [
+  { id: "g-1", name: "Room 204", members: ["Rahul Sharma", "Dharini Patel", "Hetavi Shah"], balance: 450, emoji: "🏠" },
+  { id: "g-2", name: "Goa Trip 2025", members: ["Rahul Sharma", "Mahek Joshi", "Aryan Mehta"], balance: -200, emoji: "🏖️" },
+];
+
+export default function ContactsPage() {
+  const owedToMe = MOCK_CONTACTS.filter((c) => c.netBalance > 0);
+  const owedByMe = MOCK_CONTACTS.filter((c) => c.netBalance < 0);
+  const totalOwedToMe = owedToMe.reduce((sum, c) => sum + c.netBalance, 0);
+  const totalOwedByMe = Math.abs(owedByMe.reduce((sum, c) => sum + c.netBalance, 0));
+
+  return (
+    <div className="page-container" id="contacts-page">
+      <PageHeader
+        title="Contacts & Splits"
+        rightAction={
+          <button className="header-icon-btn" aria-label="Add contact" id="contacts-add-btn">
+            <Plus size={18} color="var(--text-primary)" strokeWidth={2.5} />
+          </button>
+        }
+      />
+
+      <div style={{ padding: "0 20px" }}>
+        {/* ── Summary ────────────────────────────────── */}
+        <div
+          className="animate-fade-up"
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}
+        >
+          <div className="card" style={{ padding: "14px 16px" }}>
+            <p style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 500, marginBottom: 6 }}>
+              You're owed
+            </p>
+            <p style={{ fontSize: 20, fontWeight: 800, color: "var(--green)", fontFamily: "'JetBrains Mono', monospace" }}>
+              {formatCurrency(totalOwedToMe)}
+            </p>
+            <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+              from {owedToMe.length} people
+            </p>
+          </div>
+          <div className="card" style={{ padding: "14px 16px" }}>
+            <p style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 500, marginBottom: 6 }}>
+              You owe
+            </p>
+            <p style={{ fontSize: 20, fontWeight: 800, color: "var(--orange)", fontFamily: "'JetBrains Mono', monospace" }}>
+              {formatCurrency(totalOwedByMe)}
+            </p>
+            <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+              to {owedByMe.length} people
+            </p>
+          </div>
+        </div>
+
+        {/* ── Contacts List ─────────────────────────── */}
+        <div className="animate-fade-up delay-100" style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>People</h2>
+          <div className="card" style={{ padding: "4px 16px" }}>
+            {MOCK_CONTACTS.map((contact, idx) => {
+              const isPositive = contact.netBalance > 0;
+              return (
+                <div
+                  key={contact.id}
+                  id={`contact-${contact.id}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "14px 0",
+                    borderBottom: idx < MOCK_CONTACTS.length - 1 ? "1px solid var(--border-light)" : "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Avatar name={contact.name} color={contact.avatarColor} size={44} />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 2 }}>
+                      {contact.name}
+                    </p>
+                    <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                      {contact.phone}
+                    </p>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <p
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 700,
+                        fontFamily: "'JetBrains Mono', monospace",
+                        color: isPositive ? "var(--green)" : "var(--orange)",
+                        marginBottom: 2,
+                      }}
+                    >
+                      {isPositive ? "+" : "-"}{formatCurrency(Math.abs(contact.netBalance))}
+                    </p>
+                    <p style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                      {isPositive ? "owes you" : "you owe"}
+                    </p>
+                  </div>
+                  <ChevronRight size={16} color="var(--text-muted)" />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Groups ───────────────────────────────── */}
+        <div className="animate-fade-up delay-200">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700 }}>Groups</h2>
+            <button
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 14px",
+                background: "var(--bg-dark)",
+                color: "white",
+                borderRadius: "var(--radius-full)",
+                border: "none",
+                fontSize: 12,
+                fontWeight: 600,
+                fontFamily: "'Inter', sans-serif",
+                cursor: "pointer",
+              }}
+              id="contacts-new-group-btn"
+            >
+              <Plus size={12} />
+              New Group
+            </button>
+          </div>
+
+          {GROUPS.map((group) => (
+            <div
+              key={group.id}
+              className="card card-hover"
+              id={`group-${group.id}`}
+              style={{ padding: "16px", marginBottom: 12, cursor: "pointer" }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                <div
+                  className="icon-circle"
+                  style={{
+                    width: 44,
+                    height: 44,
+                    background: "var(--bg-input)",
+                    fontSize: 22,
+                  }}
+                >
+                  {group.emoji}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
+                    {group.name}
+                  </p>
+                  <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                    {group.members.length} members
+                  </p>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <p
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 700,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      color: group.balance > 0 ? "var(--green)" : "var(--orange)",
+                    }}
+                  >
+                    {group.balance > 0 ? "+" : ""}{formatCurrency(group.balance)}
+                  </p>
+                  <p style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                    {group.balance > 0 ? "you receive" : "you owe"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Member avatars */}
+              <div style={{ display: "flex", gap: -4 }}>
+                {group.members.map((name, idx) => (
+                  <div key={idx} style={{ marginLeft: idx > 0 ? -8 : 0, zIndex: group.members.length - idx }}>
+                    <Avatar
+                      name={name}
+                      color={["#4F6EF7", "#22C55E", "#F97316", "#A855F7"][idx % 4]}
+                      size={28}
+                      fontSize={10}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <BottomNav />
+      <FAB href="/add" />
+    </div>
+  );
+}
