@@ -26,18 +26,37 @@ export async function signInWithGoogle() {
   }
 }
 
-export async function signInWithEmail(email: string) {
+export async function signUpWithPIN(fullName: string, email: string, pin: string) {
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.signInWithOtp({
+  const { data, error } = await supabase.auth.signUp({
     email,
+    password: pin + "-pocketos",
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth/callback`,
+      data: {
+        full_name: fullName,
+      },
     },
   });
 
   if (error) {
     return { error: error.message };
+  }
+
+  if (data.session) {
+    const encoder = new TextEncoder();
+    const hashData = encoder.encode(pin + data.user!.id);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", hashData);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const pin_hash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+
+    await supabase
+      .from("profiles")
+      // @ts-ignore
+      .update({ pin_hash, pin_enabled: true })
+      .eq("id", data.user!.id);
+  } else {
+    return { error: "Please check your email to confirm your account." };
   }
 
   return { success: true };

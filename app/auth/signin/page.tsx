@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, ArrowRight, Shield, Loader2, KeyRound } from "lucide-react";
-import { signInWithGoogle, signInWithEmail, signInWithPIN } from "@/lib/actions/auth";
+import { Mail, ArrowRight, Shield, Loader2, KeyRound, User } from "lucide-react";
+import { signInWithGoogle, signInWithPIN, signUpWithPIN } from "@/lib/actions/auth";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
   const [pin, setPin] = useState("");
   const [isReturningUser, setIsReturningUser] = useState(true);
   const [loading, setLoading] = useState<"google" | "email" | null>(null);
@@ -23,19 +24,32 @@ export default function SignInPage() {
     }
   };
 
-  const handleEmail = async () => {
+  const handleSignUp = async () => {
+    if (!fullName || fullName.trim().length < 2) {
+      setError("Please enter your full name");
+      return;
+    }
     if (!email || !email.includes("@")) {
       setError("Please enter a valid email");
       return;
     }
+    if (pin.length < 4) {
+      setError("PIN must be at least 4 digits");
+      return;
+    }
     setLoading("email");
     setError(null);
-    const result = await signInWithEmail(email);
-    setLoading(null);
+    const result = await signUpWithPIN(fullName.trim(), email, pin);
+    
     if (result?.error) {
-      setError(result.error);
+      if (result.error.includes("check your email")) {
+        setOtpSent(true);
+      } else {
+        setError(result.error);
+      }
+      setLoading(null);
     } else {
-      setOtpSent(true);
+      window.location.href = "/dashboard";
     }
   };
 
@@ -112,7 +126,7 @@ export default function SignInPage() {
           </h1>
           <p style={{ fontSize: 15, color: "var(--text-secondary)" }}>
             {otpSent
-              ? `We've sent a magic link to ${email}`
+              ? `We've sent a confirmation link to ${email}`
               : "Sign in to manage your finances"}
           </p>
         </div>
@@ -288,20 +302,86 @@ export default function SignInPage() {
               </>
             ) : (
               <>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    height: 56,
+                    background: "var(--bg-card)",
+                    border: "1.5px solid var(--border)",
+                    borderRadius: "var(--radius-md)",
+                    paddingLeft: 16,
+                    marginTop: 12,
+                    gap: 12,
+                    boxShadow: "var(--shadow-card)",
+                  }}
+                >
+                  <User size={18} color="var(--text-muted)" />
+                  <input
+                    type="text"
+                    placeholder="Full Name"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    style={{
+                      flex: 1,
+                      border: "none",
+                      outline: "none",
+                      background: "transparent",
+                      fontSize: 15,
+                      fontFamily: "'Inter', sans-serif",
+                      color: "var(--text-primary)",
+                    }}
+                  />
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    height: 56,
+                    background: "var(--bg-card)",
+                    border: "1.5px solid var(--border)",
+                    borderRadius: "var(--radius-md)",
+                    paddingLeft: 16,
+                    marginTop: 12,
+                    gap: 12,
+                    boxShadow: "var(--shadow-card)",
+                  }}
+                >
+                  <KeyRound size={18} color="var(--text-muted)" />
+                  <input
+                    type="password"
+                    placeholder="Create 4-digit PIN"
+                    maxLength={4}
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                    onKeyDown={(e) => e.key === "Enter" && handleSignUp()}
+                    style={{
+                      flex: 1,
+                      border: "none",
+                      outline: "none",
+                      background: "transparent",
+                      fontSize: 15,
+                      fontFamily: "'Inter', sans-serif",
+                      color: "var(--text-primary)",
+                    }}
+                  />
+                </div>
+
                 <button
                   className="btn-primary"
-                  onClick={handleEmail}
-                  disabled={loading !== null}
+                  onClick={handleSignUp}
+                  disabled={loading !== null || pin.length < 4 || !fullName}
                   style={{
                     marginTop: 12,
-                    opacity: loading !== null ? 0.7 : 1,
-                    cursor: loading !== null ? "not-allowed" : "pointer",
+                    opacity: loading !== null || pin.length < 4 || !fullName ? 0.7 : 1,
+                    cursor: loading !== null || pin.length < 4 || !fullName ? "not-allowed" : "pointer",
                   }}
                 >
                   {loading === "email" ? (
                     <Loader2 size={18} className="animate-spin" />
                   ) : (
-                    <>Send Magic Link <ArrowRight size={18} /></>
+                    <>Create Account <ArrowRight size={18} /></>
                   )}
                 </button>
                 <button
@@ -319,7 +399,7 @@ export default function SignInPage() {
                     width: "100%",
                   }}
                 >
-                  I remember my PIN
+                  I already have an account
                 </button>
               </>
             )}
@@ -365,7 +445,7 @@ export default function SignInPage() {
             📬
           </div>
           <p style={{ fontSize: 15, color: "var(--text-secondary)", textAlign: "center", lineHeight: 1.6, maxWidth: 280 }}>
-            Click the magic link in your email to sign in. No password needed!
+            Click the confirmation link in your email to activate your account.
           </p>
           <button
             onClick={() => { setOtpSent(false); setEmail(""); }}
