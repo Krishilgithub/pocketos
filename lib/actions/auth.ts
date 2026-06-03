@@ -43,6 +43,21 @@ export async function signInWithEmail(email: string) {
   return { success: true };
 }
 
+export async function signInWithPIN(email: string, pin: string) {
+  const supabase = await createClient();
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password: pin + "-pocketos",
+  });
+
+  if (error) {
+    return { error: "Invalid PIN or Email" };
+  }
+
+  return { success: true };
+}
+
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
@@ -108,6 +123,14 @@ export async function setPIN(pin: string) {
     .eq("id", user.id);
 
   if (error) return { error: error.message };
+
+  // Set the PIN as the user's auth password for faster future logins
+  const { error: pwError } = await supabase.auth.updateUser({
+    password: pin + "-pocketos"
+  });
+  
+  if (pwError) return { error: pwError.message };
+
   return { success: true };
 }
 

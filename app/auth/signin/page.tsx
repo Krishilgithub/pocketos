@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, ArrowRight, Shield, Loader2 } from "lucide-react";
-import { signInWithGoogle, signInWithEmail } from "@/lib/actions/auth";
+import { Mail, ArrowRight, Shield, Loader2, KeyRound } from "lucide-react";
+import { signInWithGoogle, signInWithEmail, signInWithPIN } from "@/lib/actions/auth";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
+  const [pin, setPin] = useState("");
+  const [isReturningUser, setIsReturningUser] = useState(true);
   const [loading, setLoading] = useState<"google" | "email" | null>(null);
   const [otpSent, setOtpSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +36,26 @@ export default function SignInPage() {
       setError(result.error);
     } else {
       setOtpSent(true);
+    }
+  };
+
+  const handlePinLogin = async () => {
+    if (!email || !email.includes("@")) {
+      setError("Please enter a valid email");
+      return;
+    }
+    if (pin.length < 4) {
+      setError("PIN must be at least 4 digits");
+      return;
+    }
+    setLoading("email");
+    setError(null);
+    const result = await signInWithPIN(email, pin);
+    if (result?.error) {
+      setError(result.error);
+      setLoading(null);
+    } else {
+      window.location.href = "/dashboard";
     }
   };
 
@@ -191,23 +213,116 @@ export default function SignInPage() {
                 }}
               />
             </div>
-            <button
-              id="signin-otp-btn"
-              className="btn-primary"
-              onClick={handleEmail}
-              disabled={loading !== null}
-              style={{
-                marginTop: 12,
-                opacity: loading !== null ? 0.7 : 1,
-                cursor: loading !== null ? "not-allowed" : "pointer",
-              }}
-            >
-              {loading === "email" ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                <>Send Magic Link <ArrowRight size={18} /></>
-              )}
-            </button>
+
+            {isReturningUser && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  height: 56,
+                  background: "var(--bg-card)",
+                  border: "1.5px solid var(--border)",
+                  borderRadius: "var(--radius-md)",
+                  paddingLeft: 16,
+                  marginTop: 12,
+                  gap: 12,
+                  boxShadow: "var(--shadow-card)",
+                }}
+              >
+                <KeyRound size={18} color="var(--text-muted)" />
+                <input
+                  type="password"
+                  placeholder="4-digit PIN"
+                  maxLength={4}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                  onKeyDown={(e) => e.key === "Enter" && handlePinLogin()}
+                  style={{
+                    flex: 1,
+                    border: "none",
+                    outline: "none",
+                    background: "transparent",
+                    fontSize: 15,
+                    fontFamily: "'Inter', sans-serif",
+                    color: "var(--text-primary)",
+                  }}
+                />
+              </div>
+            )}
+
+            {isReturningUser ? (
+              <>
+                <button
+                  className="btn-primary"
+                  onClick={handlePinLogin}
+                  disabled={loading !== null || pin.length < 4}
+                  style={{
+                    marginTop: 12,
+                    opacity: loading !== null || pin.length < 4 ? 0.7 : 1,
+                    cursor: loading !== null || pin.length < 4 ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {loading === "email" ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <>Login with PIN <ArrowRight size={18} /></>
+                  )}
+                </button>
+                <button
+                  onClick={() => setIsReturningUser(false)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-secondary)",
+                    fontSize: 13,
+                    marginTop: 16,
+                    cursor: "pointer",
+                    fontWeight: 500,
+                    textDecoration: "underline",
+                    display: "block",
+                    width: "100%",
+                  }}
+                >
+                  Forgot PIN or New User?
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  className="btn-primary"
+                  onClick={handleEmail}
+                  disabled={loading !== null}
+                  style={{
+                    marginTop: 12,
+                    opacity: loading !== null ? 0.7 : 1,
+                    cursor: loading !== null ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {loading === "email" ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <>Send Magic Link <ArrowRight size={18} /></>
+                  )}
+                </button>
+                <button
+                  onClick={() => setIsReturningUser(true)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-secondary)",
+                    fontSize: 13,
+                    marginTop: 16,
+                    cursor: "pointer",
+                    fontWeight: 500,
+                    textDecoration: "underline",
+                    display: "block",
+                    width: "100%",
+                  }}
+                >
+                  I remember my PIN
+                </button>
+              </>
+            )}
           </div>
 
           {/* Footer */}
