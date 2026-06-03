@@ -215,7 +215,7 @@ export default function SignInPage() {
                 id="signin-email-input"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleEmail()}
+                onKeyDown={(e) => e.key === "Enter" && (isReturningUser ? handlePinLogin() : handleSignUp())}
                 style={{
                   flex: 1,
                   border: "none",
