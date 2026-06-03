@@ -1,17 +1,18 @@
-"use client";
-
+import { redirect } from "next/navigation";
 import PageHeader from "@/components/layout/PageHeader";
 import BottomNav from "@/components/layout/BottomNav";
 import FAB from "@/components/layout/FAB";
-import { MOCK_ACCOUNTS, formatCurrency, getTotalBalance } from "@/lib/utils";
-import { Account } from "@/lib/types";
 import { ChevronRight, Plus, ArrowLeftRight } from "lucide-react";
+import { getUser } from "@/lib/actions/auth";
+import { getAccounts } from "@/lib/actions/accounts";
+import { formatCurrency } from "@/lib/utils";
 
-function AccountCard({ account, index }: { account: Account; index: number }) {
+function AccountCard({ account, index }: { account: any; index: number }) {
   const isCreditCard = account.type === "credit";
-  const balance = Math.abs(account.balance);
-  const creditPct = isCreditCard && account.limit
-    ? Math.round((balance / account.limit) * 100)
+  const balance = Math.abs(Number(account.balance));
+  const creditLimit = Number(account.credit_limit) || 0;
+  const creditPct = isCreditCard && creditLimit > 0
+    ? Math.round((balance / creditLimit) * 100)
     : 0;
 
   return (
@@ -46,10 +47,11 @@ function AccountCard({ account, index }: { account: Account; index: number }) {
         <div style={{ flex: 1 }}>
           <p style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 3 }}>
             {account.name}
+            {account.is_default && <span style={{ marginLeft: 6, fontSize: 10, background: "var(--bg-input)", padding: "2px 6px", borderRadius: 4, fontWeight: 500 }}>Default</span>}
           </p>
           <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-            {account.type === "bank" && account.lastFour ? `••• ${account.lastFour}` : account.type}
-            {account.type === "credit" && account.limit ? ` · Limit ${formatCurrency(account.limit)}` : ""}
+            {account.type === "bank" && account.last_four ? `••• ${account.last_four}` : account.type}
+            {account.type === "credit" && creditLimit ? ` · Limit ${formatCurrency(creditLimit)}` : ""}
           </p>
         </div>
 
@@ -66,9 +68,9 @@ function AccountCard({ account, index }: { account: Account; index: number }) {
           >
             {isCreditCard ? "-" : ""}{formatCurrency(balance)}
           </p>
-          {isCreditCard && account.limit && (
+          {isCreditCard && creditLimit > 0 && (
             <p style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-              {formatCurrency(account.limit - balance)} available
+              {formatCurrency(Math.max(0, creditLimit - balance))} available
             </p>
           )}
         </div>
@@ -77,7 +79,7 @@ function AccountCard({ account, index }: { account: Account; index: number }) {
       </div>
 
       {/* Credit card progress */}
-      {isCreditCard && account.limit && (
+      {isCreditCard && creditLimit > 0 && (
         <div style={{ marginTop: 12 }}>
           <div style={{ height: 4, background: "var(--bg-input)", borderRadius: 99, overflow: "hidden" }}>
             <div
@@ -99,8 +101,15 @@ function AccountCard({ account, index }: { account: Account; index: number }) {
   );
 }
 
-export default function AccountsPage() {
-  const netWorth = getTotalBalance(MOCK_ACCOUNTS);
+export default async function AccountsPage() {
+  const user = await getUser();
+  if (!user) redirect("/auth/signin");
+
+  const accounts = await getAccounts();
+  
+  const netWorth = accounts.reduce((sum: number, a: any) => sum + Number(a.balance), 0);
+  const assets = accounts.filter((a: any) => Number(a.balance) >= 0).reduce((sum: number, a: any) => sum + Number(a.balance), 0);
+  const liabilities = Math.abs(accounts.filter((a: any) => Number(a.balance) < 0).reduce((sum: number, a: any) => sum + Number(a.balance), 0));
 
   return (
     <div className="page-container" id="accounts-page">
@@ -136,14 +145,14 @@ export default function AccountsPage() {
             <div>
               <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 3 }}>Assets</p>
               <p style={{ fontSize: 14, fontWeight: 700, color: "var(--green)", fontFamily: "'JetBrains Mono', monospace" }}>
-                {formatCurrency(MOCK_ACCOUNTS.filter((a) => a.balance > 0).reduce((s, a) => s + a.balance, 0))}
+                {formatCurrency(assets)}
               </p>
             </div>
             <div style={{ width: 1, background: "rgba(255,255,255,0.1)" }} />
             <div>
               <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 3 }}>Liabilities</p>
               <p style={{ fontSize: 14, fontWeight: 700, color: "var(--red)", fontFamily: "'JetBrains Mono', monospace" }}>
-                {formatCurrency(Math.abs(MOCK_ACCOUNTS.filter((a) => a.balance < 0).reduce((s, a) => s + a.balance, 0)))}
+                {formatCurrency(liabilities)}
               </p>
             </div>
           </div>
@@ -166,9 +175,17 @@ export default function AccountsPage() {
         >
           All Accounts
         </h2>
-        {MOCK_ACCOUNTS.map((account, idx) => (
+        {accounts.map((account: any, idx: number) => (
           <AccountCard key={account.id} account={account} index={idx} />
         ))}
+
+        {accounts.length === 0 && (
+          <div className="card" style={{ padding: "40px 24px", textAlign: "center" }}>
+            <p style={{ fontSize: 32, marginBottom: 12 }}>💳</p>
+            <p style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>No accounts yet</p>
+            <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Add an account to track your balances</p>
+          </div>
+        )}
       </div>
 
       <BottomNav />

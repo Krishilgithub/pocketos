@@ -1,30 +1,40 @@
 "use client";
 
 import { formatCurrency, formatTime } from "@/lib/utils";
-import { Transaction } from "@/lib/types";
-import { MOCK_CATEGORIES } from "@/lib/utils";
+
+interface CategoryLike {
+  name: string;
+  icon: string;
+  bg_color?: string;
+  bgColor?: string;
+  color?: string;
+}
+
+interface TransactionLike {
+  id: string;
+  amount: number;
+  type: "expense" | "income" | "transfer";
+  date: string | Date;
+  note?: string;
+}
 
 interface TransactionItemProps {
-  transaction: Transaction;
+  transaction: TransactionLike;
+  category?: CategoryLike | null;
   showDate?: boolean;
 }
 
-export default function TransactionItem({ transaction, showDate = false }: TransactionItemProps) {
-  const category = MOCK_CATEGORIES.find((c) => c.id === transaction.categoryId);
+export default function TransactionItem({ transaction, category, showDate = false }: TransactionItemProps) {
   const isIncome = transaction.type === "income";
+  const date = transaction.date instanceof Date ? transaction.date : new Date(transaction.date);
+  const bgColor = category?.bg_color || category?.bgColor || "#F3F4F6";
 
   return (
     <div className="tx-item" id={`tx-${transaction.id}`}>
       {/* Icon */}
       <div
         className="icon-circle"
-        style={{
-          width: 44,
-          height: 44,
-          background: category?.bgColor || "#F3F4F6",
-          fontSize: 18,
-          flexShrink: 0,
-        }}
+        style={{ width: 44, height: 44, background: bgColor, fontSize: 18, flexShrink: 0 }}
       >
         {category?.icon || "📦"}
       </div>
@@ -46,8 +56,8 @@ export default function TransactionItem({ transaction, showDate = false }: Trans
         </p>
         <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>
           {category?.name}
-          {showDate && ` · ${transaction.date.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`}
-          {" · "}{formatTime(transaction.date)}
+          {showDate && ` · ${date.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`}
+          {" · "}{formatTime(date)}
         </p>
       </div>
 
@@ -61,7 +71,7 @@ export default function TransactionItem({ transaction, showDate = false }: Trans
             color: isIncome ? "var(--green)" : "var(--text-primary)",
           }}
         >
-          {isIncome ? "+" : "-"}{formatCurrency(transaction.amount)}
+          {isIncome ? "+" : "-"}{formatCurrency(Number(transaction.amount))}
         </p>
       </div>
     </div>

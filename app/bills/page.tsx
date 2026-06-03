@@ -1,120 +1,24 @@
-"use client";
-
-import { useState } from "react";
-import { CheckCircle, Plus, AlertCircle, Clock } from "lucide-react";
+import { redirect } from "next/navigation";
+import { Plus, AlertCircle, Clock } from "lucide-react";
 import PageHeader from "@/components/layout/PageHeader";
 import BottomNav from "@/components/layout/BottomNav";
 import FAB from "@/components/layout/FAB";
-import { MOCK_BILLS, formatCurrency, getDaysRemaining } from "@/lib/utils";
-import { Bill } from "@/lib/types";
+import BillCard from "@/components/ui/BillCard";
+import { getUser } from "@/lib/actions/auth";
+import { getBills } from "@/lib/actions/bills";
+import { formatCurrency } from "@/lib/utils";
 
-function BillCard({ bill }: { bill: Bill }) {
-  const [paid, setPaid] = useState(false);
-  const daysLeft = getDaysRemaining(bill.dueDate);
-  const isOverdue = bill.status === "overdue" && !paid;
-  const isDueSoon = bill.status === "due_soon" && !paid;
+export default async function BillsPage() {
+  const user = await getUser();
+  if (!user) redirect("/auth/signin");
 
-  return (
-    <div
-      className="card"
-      id={`bill-${bill.id}`}
-      style={{
-        padding: "16px",
-        marginBottom: 12,
-        borderLeft: `3px solid ${paid ? "var(--green)" : isOverdue ? "var(--red)" : isDueSoon ? "var(--orange)" : "var(--border)"}`,
-        opacity: paid ? 0.6 : 1,
-        transition: "all 0.3s ease",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        {/* Icon */}
-        <div
-          className="icon-circle"
-          style={{
-            width: 44,
-            height: 44,
-            background: paid ? "var(--green-light)" : isOverdue ? "var(--red-light)" : "var(--bg-input)",
-            fontSize: 20,
-          }}
-        >
-          {bill.icon}
-        </div>
+  const bills = await getBills();
 
-        {/* Info */}
-        <div style={{ flex: 1 }}>
-          <p
-            style={{
-              fontSize: 15,
-              fontWeight: 600,
-              color: "var(--text-primary)",
-              marginBottom: 3,
-              textDecoration: paid ? "line-through" : "none",
-            }}
-          >
-            {bill.name}
-          </p>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {paid ? (
-              <span style={{ fontSize: 12, color: "var(--green)", fontWeight: 500 }}>✓ Paid</span>
-            ) : isOverdue ? (
-              <span style={{ fontSize: 12, color: "var(--red)", fontWeight: 500 }}>
-                Overdue by {Math.abs(daysLeft)} days
-              </span>
-            ) : (
-              <span style={{ fontSize: 12, color: isDueSoon ? "var(--orange)" : "var(--text-secondary)" }}>
-                {daysLeft === 0 ? "Due today" : `Due in ${daysLeft} days`}
-              </span>
-            )}
-            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-              · {bill.dueDate.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-            </span>
-          </div>
-        </div>
-
-        {/* Amount + Mark Paid */}
-        <div style={{ textAlign: "right" }}>
-          <p
-            style={{
-              fontSize: 16,
-              fontWeight: 700,
-              fontFamily: "'JetBrains Mono', monospace",
-              color: "var(--text-primary)",
-              marginBottom: 6,
-            }}
-          >
-            {formatCurrency(bill.amount)}
-          </p>
-          {!paid && (
-            <button
-              onClick={() => setPaid(true)}
-              id={`bill-pay-${bill.id}`}
-              style={{
-                padding: "4px 12px",
-                background: "var(--bg-dark)",
-                color: "white",
-                borderRadius: "var(--radius-full)",
-                border: "none",
-                fontSize: 12,
-                fontWeight: 600,
-                fontFamily: "'Inter', sans-serif",
-                cursor: "pointer",
-              }}
-            >
-              Pay
-            </button>
-          )}
-          {paid && <CheckCircle size={20} color="var(--green)" />}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function BillsPage() {
-  const overdueBills = MOCK_BILLS.filter((b) => b.status === "overdue");
-  const dueSoonBills = MOCK_BILLS.filter((b) => b.status === "due_soon");
-  const upcomingBills = MOCK_BILLS.filter((b) => b.status === "upcoming");
-  const totalDue = MOCK_BILLS.reduce((sum, b) => sum + b.amount, 0);
+  const overdueBills = bills.filter((b: any) => b.status === "overdue");
+  const dueSoonBills = bills.filter((b: any) => b.status === "due_soon");
+  const upcomingBills = bills.filter((b: any) => b.status === "upcoming");
+  
+  const totalDue = bills.reduce((sum: number, b: any) => sum + Number(b.amount), 0);
 
   return (
     <div className="page-container" id="bills-page">
@@ -127,13 +31,13 @@ export default function BillsPage() {
         }
       />
 
-      <div style={{ padding: "0 20px" }}>
+      <div style={{ padding: "0 20px 24px" }}>
         {/* ── Summary ────────────────────────────────── */}
         <div
           className="card-dark animate-fade-up"
           style={{ padding: "20px", marginBottom: 24 }}
         >
-          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>Due This Month</p>
+          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginBottom: 6 }}>Total Due</p>
           <p
             style={{
               fontSize: 30,
@@ -189,7 +93,7 @@ export default function BillsPage() {
             <p style={{ fontSize: 12, fontWeight: 700, color: "var(--red)", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.04em" }}>
               Overdue
             </p>
-            {overdueBills.map((bill) => <BillCard key={bill.id} bill={bill} />)}
+            {overdueBills.map((bill: any) => <BillCard key={bill.id} bill={bill} />)}
           </div>
         )}
 
@@ -199,17 +103,27 @@ export default function BillsPage() {
             <p style={{ fontSize: 12, fontWeight: 700, color: "var(--orange)", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.04em" }}>
               Due Soon
             </p>
-            {dueSoonBills.map((bill) => <BillCard key={bill.id} bill={bill} />)}
+            {dueSoonBills.map((bill: any) => <BillCard key={bill.id} bill={bill} />)}
           </div>
         )}
 
         {/* ── Upcoming ─────────────────────────────── */}
-        <div className="animate-fade-up delay-200">
-          <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            Upcoming
-          </p>
-          {upcomingBills.map((bill) => <BillCard key={bill.id} bill={bill} />)}
-        </div>
+        {upcomingBills.length > 0 && (
+          <div className="animate-fade-up delay-200">
+            <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Upcoming
+            </p>
+            {upcomingBills.map((bill: any) => <BillCard key={bill.id} bill={bill} />)}
+          </div>
+        )}
+
+        {bills.length === 0 && (
+          <div className="card animate-fade-up delay-100" style={{ padding: "40px 24px", textAlign: "center" }}>
+            <p style={{ fontSize: 32, marginBottom: 12 }}>📄</p>
+            <p style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>No bills</p>
+            <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Add a bill to keep track of due dates</p>
+          </div>
+        )}
       </div>
 
       <BottomNav />

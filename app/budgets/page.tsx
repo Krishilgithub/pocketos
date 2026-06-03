@@ -1,27 +1,27 @@
-"use client";
-
+import { redirect } from "next/navigation";
 import PageHeader from "@/components/layout/PageHeader";
 import BottomNav from "@/components/layout/BottomNav";
 import FAB from "@/components/layout/FAB";
 import ProgressBar from "@/components/ui/ProgressBar";
-import {
-  MOCK_BUDGETS,
-  MOCK_CATEGORIES,
-  formatCurrency,
-  getProgress,
-  getProgressColor,
-} from "@/lib/utils";
+import { getUser } from "@/lib/actions/auth";
+import { getBudgets } from "@/lib/actions/budgets";
+import { formatCurrency, getProgressColor } from "@/lib/utils";
 
-export default function BudgetsPage() {
-  const totalSpent = MOCK_BUDGETS.reduce((s, b) => s + b.spentAmount, 0);
-  const totalLimit = MOCK_BUDGETS.reduce((s, b) => s + b.limitAmount, 0);
-  const overallPct = getProgress(totalSpent, totalLimit);
+export default async function BudgetsPage() {
+  const user = await getUser();
+  if (!user) redirect("/auth/signin");
+
+  const budgets = await getBudgets();
+
+  const totalSpent = budgets.reduce((s: number, b: any) => s + Number(b.spent_amount), 0);
+  const totalLimit = budgets.reduce((s: number, b: any) => s + Number(b.limit_amount), 0);
+  const overallPct = totalLimit > 0 ? Math.min(100, Math.round((totalSpent / totalLimit) * 100)) : 0;
 
   return (
     <div className="page-container" id="budgets-page">
       <PageHeader title="Budget Planner" />
 
-      <div style={{ padding: "0 20px" }}>
+      <div style={{ padding: "0 20px 24px" }}>
         {/* ── Month Selector ─────────────────────────── */}
         <div
           className="animate-fade-up"
@@ -40,7 +40,9 @@ export default function BudgetsPage() {
             }}
           >
             <span style={{ fontSize: 16, cursor: "pointer", color: "var(--text-secondary)" }}>‹</span>
-            <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>June 2025</span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
+              {new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
+            </span>
             <span style={{ fontSize: 16, cursor: "pointer", color: "var(--text-secondary)" }}>›</span>
           </div>
         </div>
@@ -83,7 +85,7 @@ export default function BudgetsPage() {
               {overallPct}% used
             </span>
             <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", fontWeight: 600 }}>
-              {formatCurrency(totalLimit - totalSpent)} remaining
+              {formatCurrency(Math.max(0, totalLimit - totalSpent))} remaining
             </span>
           </div>
         </div>
@@ -92,11 +94,10 @@ export default function BudgetsPage() {
         <div className="animate-fade-up delay-150">
           <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>By Category</h2>
 
-          {MOCK_BUDGETS.map((budget, idx) => {
-            const category = MOCK_CATEGORIES.find((c) => c.id === budget.categoryId);
-            const pct = getProgress(budget.spentAmount, budget.limitAmount);
+          {budgets.length > 0 ? budgets.map((budget: any, idx: number) => {
+            const pct = budget.progress_percent;
             const barColor = getProgressColor(pct);
-            const remaining = budget.limitAmount - budget.spentAmount;
+            const remaining = Number(budget.limit_amount) - Number(budget.spent_amount);
 
             return (
               <div
@@ -112,29 +113,27 @@ export default function BudgetsPage() {
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                  {/* Category Icon */}
                   <div
                     className="icon-circle"
                     style={{
                       width: 40,
                       height: 40,
-                      background: category?.bgColor || "var(--bg-input)",
+                      background: budget.category?.bg_color || "var(--bg-input)",
                       fontSize: 18,
                     }}
                   >
-                    {category?.icon || "📦"}
+                    {budget.category?.icon || "📦"}
                   </div>
 
                   <div style={{ flex: 1 }}>
                     <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", marginBottom: 2 }}>
-                      {category?.name || "Unknown"}
+                      {budget.category?.name || "Unknown"}
                     </p>
                     <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                      {formatCurrency(budget.spentAmount)} / {formatCurrency(budget.limitAmount)}
+                      {formatCurrency(Number(budget.spent_amount))} / {formatCurrency(Number(budget.limit_amount))}
                     </p>
                   </div>
 
-                  {/* Percentage badge */}
                   <div
                     style={{
                       padding: "4px 10px",
@@ -149,10 +148,9 @@ export default function BudgetsPage() {
                   </div>
                 </div>
 
-                {/* Progress bar */}
-                <ProgressBar current={budget.spentAmount} target={budget.limitAmount} color={barColor} height={6} />
+                <ProgressBar current={Number(budget.spent_amount)} target={Number(budget.limit_amount)} color={barColor} height={6} />
 
-                {pct >= 90 && (
+                {pct >= 90 && remaining >= 0 && (
                   <p style={{ fontSize: 11, color: "var(--red)", marginTop: 8, fontWeight: 500 }}>
                     ⚠ Only {formatCurrency(remaining)} remaining
                   </p>
@@ -164,9 +162,14 @@ export default function BudgetsPage() {
                 )}
               </div>
             );
-          })}
+          }) : (
+            <div className="card" style={{ padding: "40px 24px", textAlign: "center", marginBottom: 12 }}>
+              <p style={{ fontSize: 32, marginBottom: 12 }}>📊</p>
+              <p style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>No budgets set</p>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Create a budget to track category limits</p>
+            </div>
+          )}
 
-          {/* Add Budget Button */}
           <button
             id="budgets-add-btn"
             style={{

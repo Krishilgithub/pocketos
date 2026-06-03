@@ -1,29 +1,89 @@
-"use client";
-
+import { redirect } from "next/navigation";
 import PageHeader from "@/components/layout/PageHeader";
 import BottomNav from "@/components/layout/BottomNav";
 import FAB from "@/components/layout/FAB";
 import { IncomeExpenseChart, DonutChart } from "@/components/charts/Charts";
-import { ANALYTICS_DATA, formatCurrency, getMonthlyIncome, getMonthlyExpense, MOCK_TRANSACTIONS } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { Download, Share2 } from "lucide-react";
+import { getUser } from "@/lib/actions/auth";
+import { createClient } from "@/lib/supabase/server";
 
-const CATEGORY_SPEND = [
-  { label: "Food & Mess", value: 3800, color: "#F97316" },
-  { label: "Groceries", value: 2100, color: "#EAB308" },
-  { label: "Entertainment", value: 1380, color: "#EC4899" },
-  { label: "Travel", value: 1200, color: "#22C55E" },
-  { label: "Utilities", value: 2549, color: "#14B8A6" },
-  { label: "Other", value: 1580, color: "#6B7280" },
-];
+export default async function ReportsPage() {
+  const user = await getUser();
+  if (!user) redirect("/auth/signin");
 
-const STAT_CARDS = [
-  { label: "Income", value: formatCurrency(45000), sub: "June 2025", color: "var(--green)" },
-  { label: "Expenses", value: formatCurrency(28000), sub: "June 2025", color: "var(--red)" },
-  { label: "Savings Rate", value: "37.8%", sub: "This month", color: "var(--blue)" },
-  { label: "Net Worth", value: formatCurrency(49300), sub: "Total assets", color: "var(--purple)" },
-];
+  const supabase = await createClient();
 
-export default function ReportsPage() {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
+  // Get start of year
+  const startOfYear = new Date(currentYear, 0, 1).toISOString();
+
+  // Fetch this year's transactions
+  const { data: transactions } = await supabase
+    .from("transactions")
+    .select("amount, type, date, category:categories(name, color)")
+    .eq("user_id", user.id)
+    .gte("date", startOfYear);
+
+  // Group by month
+  const monthlyIncome = new Array(12).fill(0);
+  const monthlyExpense = new Array(12).fill(0);
+  
+  // Category breakdown for current month
+  const categorySpend: Record<string, { label: string; value: number; color: string }> = {};
+  
+  let currentMonthIncome = 0;
+  let currentMonthExpense = 0;
+
+  (transactions || []).forEach((tx: any) => {
+    const txDate = new Date(tx.date);
+    const monthIdx = txDate.getMonth();
+    const amount = Number(tx.amount);
+
+    if (tx.type === "income") {
+      monthlyIncome[monthIdx] += amount;
+      if (monthIdx === currentMonth - 1) currentMonthIncome += amount;
+    } else if (tx.type === "expense") {
+      monthlyExpense[monthIdx] += amount;
+      if (monthIdx === currentMonth - 1) {
+        currentMonthExpense += amount;
+        
+        // Category spend
+        const catName = tx.category?.name || "Uncategorized";
+        if (!categorySpend[catName]) {
+          categorySpend[catName] = { label: catName, value: 0, color: tx.category?.color || "#6B7280" };
+        }
+        categorySpend[catName].value += amount;
+      }
+    }
+  });
+
+  // Calculate Net Worth
+  const { data: accounts } = await supabase
+    .from("accounts")
+    .select("balance")
+    .eq("user_id", user.id);
+  const netWorth = (accounts || []).reduce((sum, acc: any) => sum + Number(acc.balance), 0);
+
+  const savingsRate = currentMonthIncome > 0 
+    ? Math.round(((currentMonthIncome - currentMonthExpense) / currentMonthIncome) * 100) 
+    : 0;
+
+  const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const currentMonthName = monthLabels[currentMonth - 1];
+
+  const statCards = [
+    { label: "Income", value: formatCurrency(currentMonthIncome), sub: `${currentMonthName} ${currentYear}`, color: "var(--green)" },
+    { label: "Expenses", value: formatCurrency(currentMonthExpense), sub: `${currentMonthName} ${currentYear}`, color: "var(--red)" },
+    { label: "Savings Rate", value: `${savingsRate}%`, sub: "This month", color: "var(--blue)" },
+    { label: "Net Worth", value: formatCurrency(netWorth), sub: "Total assets", color: "var(--purple)" },
+  ];
+
+  const categorySpendArray = Object.values(categorySpend).sort((a, b) => b.value - a.value);
+
   return (
     <div className="page-container" id="reports-page">
       <PageHeader
@@ -40,7 +100,7 @@ export default function ReportsPage() {
         }
       />
 
-      <div style={{ padding: "0 20px" }}>
+      <div style={{ padding: "0 20px 24px" }}>
         {/* ── Period Selector ────────────────────────── */}
         <div className="tab-bar animate-fade-up" style={{ marginBottom: 24 }}>
           {["Month", "Quarter", "Year"].map((period, idx) => (
@@ -64,7 +124,7 @@ export default function ReportsPage() {
             marginBottom: 24,
           }}
         >
-          {STAT_CARDS.map((stat, idx) => (
+          {statCards.map((stat, idx) => (
             <div
               key={stat.label}
               className="card"
@@ -111,9 +171,9 @@ export default function ReportsPage() {
             </div>
           </div>
           <IncomeExpenseChart
-            incomeData={ANALYTICS_DATA.monthlyIncome}
-            expenseData={ANALYTICS_DATA.monthlyExpense}
-            labels={ANALYTICS_DATA.months}
+            incomeData={monthlyIncome}
+            expenseData={monthlyExpense}
+            labels={monthLabels}
             height={150}
           />
         </div>
@@ -126,7 +186,13 @@ export default function ReportsPage() {
           <p style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16 }}>
             Spending by Category
           </p>
-          <DonutChart data={CATEGORY_SPEND} size={120} />
+          {categorySpendArray.length > 0 ? (
+            <DonutChart data={categorySpendArray} size={120} />
+          ) : (
+            <p style={{ fontSize: 13, color: "var(--text-secondary)", textAlign: "center", padding: "20px 0" }}>
+              No expenses this month
+            </p>
+          )}
         </div>
 
         {/* ── Savings Rate Card ───────────────────────── */}
@@ -135,26 +201,26 @@ export default function ReportsPage() {
           style={{ padding: "20px", marginBottom: 16 }}
         >
           <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", marginBottom: 8 }}>
-            Savings Rate — June 2025
+            Savings Rate — {currentMonthName} {currentYear}
           </p>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 12 }}>
             <span
               style={{
                 fontSize: 40,
                 fontWeight: 800,
-                color: "var(--green)",
+                color: savingsRate >= 20 ? "var(--green)" : "var(--orange)",
                 fontFamily: "'JetBrains Mono', monospace",
               }}
             >
-              37.8%
+              {savingsRate}%
             </span>
             <span style={{ fontSize: 14, color: "rgba(255,255,255,0.5)" }}>of income saved</span>
           </div>
           <div style={{ height: 8, background: "rgba(255,255,255,0.1)", borderRadius: 99, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: "37.8%", background: "var(--green)", borderRadius: 99 }} />
+            <div style={{ height: "100%", width: `${Math.max(0, Math.min(100, savingsRate))}%`, background: savingsRate >= 20 ? "var(--green)" : "var(--orange)", borderRadius: 99 }} />
           </div>
           <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 8 }}>
-            🎯 Goal: ≥ 20% · You're exceeding your savings goal!
+            🎯 Goal: ≥ 20% · {savingsRate >= 20 ? "You're exceeding your savings goal!" : "You're falling slightly short this month."}
           </p>
         </div>
 

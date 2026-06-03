@@ -1,26 +1,30 @@
-"use client";
-
+import { redirect } from "next/navigation";
 import PageHeader from "@/components/layout/PageHeader";
 import BottomNav from "@/components/layout/BottomNav";
 import FAB from "@/components/layout/FAB";
-import ProgressBar from "@/components/ui/ProgressBar";
 import Avatar from "@/components/ui/Avatar";
-import {
-  MOCK_CONTACTS,
-  formatCurrency,
-} from "@/lib/utils";
-import { ChevronRight, Plus, Users } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
+import { getUser } from "@/lib/actions/auth";
+import { getContacts } from "@/lib/actions/contacts";
+import { formatCurrency } from "@/lib/utils";
 
+// Dummy groups for UI completeness since we didn't add full groups DB API yet
 const GROUPS = [
   { id: "g-1", name: "Room 204", members: ["Rahul Sharma", "Dharini Patel", "Hetavi Shah"], balance: 450, emoji: "🏠" },
   { id: "g-2", name: "Goa Trip 2025", members: ["Rahul Sharma", "Mahek Joshi", "Aryan Mehta"], balance: -200, emoji: "🏖️" },
 ];
 
-export default function ContactsPage() {
-  const owedToMe = MOCK_CONTACTS.filter((c) => c.netBalance > 0);
-  const owedByMe = MOCK_CONTACTS.filter((c) => c.netBalance < 0);
-  const totalOwedToMe = owedToMe.reduce((sum, c) => sum + c.netBalance, 0);
-  const totalOwedByMe = Math.abs(owedByMe.reduce((sum, c) => sum + c.netBalance, 0));
+export default async function ContactsPage() {
+  const user = await getUser();
+  if (!user) redirect("/auth/signin");
+
+  const contacts = await getContacts();
+
+  const owedToMe = contacts.filter((c: any) => Number(c.net_balance) > 0);
+  const owedByMe = contacts.filter((c: any) => Number(c.net_balance) < 0);
+  
+  const totalOwedToMe = owedToMe.reduce((sum: number, c: any) => sum + Number(c.net_balance), 0);
+  const totalOwedByMe = Math.abs(owedByMe.reduce((sum: number, c: any) => sum + Number(c.net_balance), 0));
 
   return (
     <div className="page-container" id="contacts-page">
@@ -33,7 +37,7 @@ export default function ContactsPage() {
         }
       />
 
-      <div style={{ padding: "0 20px" }}>
+      <div style={{ padding: "0 20px 24px" }}>
         {/* ── Summary ────────────────────────────────── */}
         <div
           className="animate-fade-up"
@@ -67,8 +71,11 @@ export default function ContactsPage() {
         <div className="animate-fade-up delay-100" style={{ marginBottom: 24 }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>People</h2>
           <div className="card" style={{ padding: "4px 16px" }}>
-            {MOCK_CONTACTS.map((contact, idx) => {
-              const isPositive = contact.netBalance > 0;
+            {contacts.map((contact: any, idx: number) => {
+              const netBalance = Number(contact.net_balance);
+              const isPositive = netBalance > 0;
+              const isNeutral = netBalance === 0;
+
               return (
                 <div
                   key={contact.id}
@@ -78,17 +85,17 @@ export default function ContactsPage() {
                     alignItems: "center",
                     gap: 12,
                     padding: "14px 0",
-                    borderBottom: idx < MOCK_CONTACTS.length - 1 ? "1px solid var(--border-light)" : "none",
+                    borderBottom: idx < contacts.length - 1 ? "1px solid var(--border-light)" : "none",
                     cursor: "pointer",
                   }}
                 >
-                  <Avatar name={contact.name} color={contact.avatarColor} size={44} />
+                  <Avatar name={contact.name} color={contact.avatar_color} size={44} />
                   <div style={{ flex: 1 }}>
                     <p style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 2 }}>
                       {contact.name}
                     </p>
                     <p style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                      {contact.phone}
+                      {contact.phone || "No phone"}
                     </p>
                   </div>
                   <div style={{ textAlign: "right" }}>
@@ -97,20 +104,29 @@ export default function ContactsPage() {
                         fontSize: 15,
                         fontWeight: 700,
                         fontFamily: "'JetBrains Mono', monospace",
-                        color: isPositive ? "var(--green)" : "var(--orange)",
+                        color: isNeutral ? "var(--text-primary)" : isPositive ? "var(--green)" : "var(--orange)",
                         marginBottom: 2,
                       }}
                     >
-                      {isPositive ? "+" : "-"}{formatCurrency(Math.abs(contact.netBalance))}
+                      {!isNeutral && (isPositive ? "+" : "-")}{formatCurrency(Math.abs(netBalance))}
                     </p>
                     <p style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-                      {isPositive ? "owes you" : "you owe"}
+                      {isNeutral ? "Settled up" : isPositive ? "owes you" : "you owe"}
                     </p>
                   </div>
                   <ChevronRight size={16} color="var(--text-muted)" />
                 </div>
               );
             })}
+
+            {contacts.length === 0 && (
+              <div style={{ padding: "32px 16px", textAlign: "center" }}>
+                <p style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 12 }}>No contacts added yet</p>
+                <button className="btn-secondary" style={{ padding: "8px 16px", height: "auto" }}>
+                  Add Contact
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -176,7 +192,7 @@ export default function ContactsPage() {
                       color: group.balance > 0 ? "var(--green)" : "var(--orange)",
                     }}
                   >
-                    {group.balance > 0 ? "+" : ""}{formatCurrency(group.balance)}
+                    {group.balance > 0 ? "+" : ""}{formatCurrency(Math.abs(group.balance))}
                   </p>
                   <p style={{ fontSize: 11, color: "var(--text-secondary)" }}>
                     {group.balance > 0 ? "you receive" : "you owe"}

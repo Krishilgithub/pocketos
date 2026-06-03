@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Delete } from "lucide-react";
+import { Delete, Loader2 } from "lucide-react";
+import { verifyPIN } from "@/lib/actions/auth";
 
 const NUMPAD_KEYS = [
   "1", "2", "3",
@@ -14,9 +15,11 @@ const NUMPAD_KEYS = [
 export default function PinPage() {
   const [pin, setPin] = useState<string[]>([]);
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleKey = (key: string) => {
+  const handleKey = async (key: string) => {
+    if (loading) return;
     if (key === "⌫") {
       setPin((prev) => prev.slice(0, -1));
       setError(false);
@@ -29,18 +32,20 @@ export default function PinPage() {
     setPin(newPin);
 
     if (newPin.length === 4) {
-      // Simulate PIN validation
-      setTimeout(() => {
-        if (newPin.join("") === "1234") {
-          router.push("/dashboard");
-        } else {
-          setError(true);
-          setTimeout(() => {
-            setPin([]);
-            setError(false);
-          }, 600);
-        }
-      }, 200);
+      setLoading(true);
+      const pinString = newPin.join("");
+      const isValid = await verifyPIN(pinString);
+      setLoading(false);
+
+      if (isValid) {
+        router.push("/dashboard");
+      } else {
+        setError(true);
+        setTimeout(() => {
+          setPin([]);
+          setError(false);
+        }, 700);
+      }
     }
   };
 
@@ -75,53 +80,50 @@ export default function PinPage() {
         >
           🔐
         </div>
-        <h1
-          style={{
-            fontSize: 24,
-            fontWeight: 700,
-            color: "white",
-            marginBottom: 8,
-          }}
-        >
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: "white", marginBottom: 8 }}>
           Enter your PIN
         </h1>
         <p style={{ fontSize: 14, color: "rgba(255,255,255,0.4)" }}>
-          Use PIN: <strong style={{ color: "rgba(255,255,255,0.7)" }}>1234</strong> to continue
+          Verify your identity to continue
         </p>
       </div>
 
       {/* PIN Dots */}
-      <div style={{ display: "flex", gap: 20 }}>
-        {[0, 1, 2, 3].map((i) => (
-          <div
-            key={i}
-            style={{
-              width: 18,
-              height: 18,
-              borderRadius: "50%",
-              border: "2px solid rgba(255,255,255,0.3)",
-              background: pin.length > i
-                ? error ? "var(--red)" : "var(--green)"
-                : "transparent",
-              transition: "all 0.15s ease",
-              transform: pin.length > i ? "scale(1.1)" : "scale(1)",
-            }}
-          />
-        ))}
-      </div>
+      <div style={{ display: "flex", gap: 20, flexDirection: "column", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 20 }}>
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: "50%",
+                border: "2px solid rgba(255,255,255,0.3)",
+                background: loading
+                  ? "rgba(255,255,255,0.5)"
+                  : pin.length > i
+                    ? error ? "var(--red)" : "var(--green)"
+                    : "transparent",
+                transition: "all 0.15s ease",
+                transform: pin.length > i ? "scale(1.1)" : "scale(1)",
+              }}
+            />
+          ))}
+        </div>
 
-      {error && (
-        <p
-          style={{
-            fontSize: 13,
-            color: "var(--red)",
-            fontWeight: 500,
-            animation: "fadeIn 0.2s ease",
-          }}
-        >
-          Incorrect PIN, try again
-        </p>
-      )}
+        {error && (
+          <p style={{ fontSize: 13, color: "var(--red)", fontWeight: 500 }}>
+            Incorrect PIN, try again
+          </p>
+        )}
+
+        {loading && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Loader2 size={16} color="rgba(255,255,255,0.5)" className="animate-spin" />
+            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.5)" }}>Verifying…</span>
+          </div>
+        )}
+      </div>
 
       {/* Numpad */}
       <div
@@ -147,47 +149,34 @@ export default function PinPage() {
               fontSize: key === "⌫" ? 20 : 24,
               fontWeight: key === "⌫" ? 400 : 600,
               fontFamily: "'Inter', sans-serif",
-              cursor: key === "" ? "default" : "pointer",
+              cursor: key === "" ? "default" : loading ? "not-allowed" : "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               transition: "all 0.1s ease",
               outline: "none",
+              opacity: loading ? 0.5 : 1,
             }}
           >
-            {key === "⌫" ? (
-              <Delete size={20} strokeWidth={2} />
-            ) : key}
+            {key === "⌫" ? <Delete size={20} strokeWidth={2} /> : key}
           </button>
         ))}
       </div>
 
-      {/* Biometric + Forgot */}
+      {/* Footer Links */}
       <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
         <button
           style={{
             background: "none",
             border: "none",
-            color: "rgba(255,255,255,0.5)",
+            color: "rgba(255,255,255,0.4)",
             fontSize: 13,
             fontFamily: "'Inter', sans-serif",
             cursor: "pointer",
           }}
+          onClick={() => router.push("/auth/signin")}
         >
-          Use Face ID
-        </button>
-        <span style={{ color: "rgba(255,255,255,0.2)" }}>·</span>
-        <button
-          style={{
-            background: "none",
-            border: "none",
-            color: "rgba(255,255,255,0.5)",
-            fontSize: 13,
-            fontFamily: "'Inter', sans-serif",
-            cursor: "pointer",
-          }}
-        >
-          Forgot PIN?
+          Sign in differently
         </button>
       </div>
     </div>

@@ -1,44 +1,50 @@
-"use client";
-
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ChevronRight, User, Bell, Shield, CreditCard, Trash2, Download, Moon, Globe, LogOut } from "lucide-react";
 import PageHeader from "@/components/layout/PageHeader";
 import BottomNav from "@/components/layout/BottomNav";
 import Avatar from "@/components/ui/Avatar";
+import { getUser, getProfile, signOut } from "@/lib/actions/auth";
 
-const SETTINGS_SECTIONS = [
-  {
-    title: "Account",
-    items: [
-      { id: "settings-profile", icon: <User size={18} />, label: "Edit Profile", sub: "Krishil Agrawal", color: "#4F6EF7" },
-      { id: "settings-currency", icon: <CreditCard size={18} />, label: "Currency", sub: "₹ Indian Rupee (INR)", color: "#22C55E" },
-      { id: "settings-language", icon: <Globe size={18} />, label: "Language", sub: "English", color: "#A855F7" },
-    ],
-  },
-  {
-    title: "Appearance",
-    items: [
-      { id: "settings-theme", icon: <Moon size={18} />, label: "Theme", sub: "Light", color: "#111111" },
-      { id: "settings-notifications", icon: <Bell size={18} />, label: "Notifications", sub: "Enabled", color: "#F97316" },
-    ],
-  },
-  {
-    title: "Security",
-    items: [
-      { id: "settings-pin", icon: <Shield size={18} />, label: "Change PIN", sub: "4-digit PIN", color: "#EF4444" },
-      { id: "settings-biometric", icon: <Shield size={18} />, label: "Face ID / Fingerprint", sub: "Enabled", color: "#14B8A6" },
-    ],
-  },
-  {
-    title: "Data",
-    items: [
-      { id: "settings-export", icon: <Download size={18} />, label: "Export Data", sub: "CSV or PDF", color: "#6366F1" },
-      { id: "settings-delete", icon: <Trash2 size={18} />, label: "Delete Account", sub: "Permanently remove data", color: "#EF4444", danger: true },
-    ],
-  },
-];
+export default async function SettingsPage() {
+  const user = await getUser();
+  if (!user) redirect("/auth/signin");
 
-export default function SettingsPage() {
+  const profile = await getProfile();
+  const displayName = profile?.full_name || user.email?.split("@")[0] || "User";
+  const currency = profile?.currency || "INR";
+
+  const SETTINGS_SECTIONS = [
+    {
+      title: "Account",
+      items: [
+        { id: "settings-profile", icon: <User size={18} />, label: "Edit Profile", sub: displayName, color: "#4F6EF7" },
+        { id: "settings-currency", icon: <CreditCard size={18} />, label: "Currency", sub: `₹ Indian Rupee (${currency})`, color: "#22C55E" },
+        { id: "settings-language", icon: <Globe size={18} />, label: "Language", sub: "English", color: "#A855F7" },
+      ],
+    },
+    {
+      title: "Appearance",
+      items: [
+        { id: "settings-theme", icon: <Moon size={18} />, label: "Theme", sub: profile?.theme === "dark" ? "Dark" : "Light", color: "#111111" },
+        { id: "settings-notifications", icon: <Bell size={18} />, label: "Notifications", sub: "Enabled", color: "#F97316" },
+      ],
+    },
+    {
+      title: "Security",
+      items: [
+        { id: "settings-pin", icon: <Shield size={18} />, label: "Change PIN", sub: profile?.pin_enabled ? "Enabled" : "Not Set", color: "#EF4444" },
+        { id: "settings-biometric", icon: <Shield size={18} />, label: "Face ID / Fingerprint", sub: "Disabled", color: "#14B8A6" },
+      ],
+    },
+    {
+      title: "Data",
+      items: [
+        { id: "settings-export", icon: <Download size={18} />, label: "Export Data", sub: "CSV or PDF", color: "#6366F1" },
+        { id: "settings-delete", icon: <Trash2 size={18} />, label: "Delete Account", sub: "Permanently remove data", color: "#EF4444", danger: true },
+      ],
+    },
+  ];
+
   return (
     <div className="page-container" id="settings-page">
       <PageHeader title="Settings" />
@@ -49,13 +55,13 @@ export default function SettingsPage() {
           className="card animate-fade-up"
           style={{ padding: "20px", marginBottom: 24, display: "flex", gap: 16, alignItems: "center" }}
         >
-          <Avatar name="Krishil Agrawal" color="#4F6EF7" size={60} fontSize={22} />
+          <Avatar name={displayName} color="#4F6EF7" size={60} fontSize={22} />
           <div style={{ flex: 1 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)", marginBottom: 3 }}>
-              Krishil Agrawal
+              {displayName}
             </h2>
             <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 8 }}>
-              krishil@example.com
+              {user.email}
             </p>
             <span
               style={{
@@ -162,20 +168,22 @@ export default function SettingsPage() {
         ))}
 
         {/* ── Sign Out ────────────────────────────────── */}
-        <Link
-          href="/auth/signin"
-          id="settings-signout-btn"
-          className="btn-secondary"
-          style={{
-            textDecoration: "none",
-            color: "var(--red)",
-            marginBottom: 32,
-            display: "flex",
-          }}
-        >
-          <LogOut size={18} />
-          Sign Out
-        </Link>
+        <form action={signOut}>
+          <button
+            type="submit"
+            id="settings-signout-btn"
+            className="btn-secondary"
+            style={{
+              color: "var(--red)",
+              marginBottom: 32,
+              display: "flex",
+              width: "100%",
+            }}
+          >
+            <LogOut size={18} />
+            Sign Out
+          </button>
+        </form>
 
         {/* ── App Info ────────────────────────────────── */}
         <div style={{ textAlign: "center", paddingBottom: 16 }}>
